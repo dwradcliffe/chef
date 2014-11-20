@@ -42,6 +42,8 @@ class Chef
         # which files can be moved around. I'm concerned about how much overhead
         # we introduce by sequestering RSpec by `controls` group instead of in
         # a common class or shared module.
+        # TODO add comments explaining what each require adds
+        # TODO (?) if running rspec from the command line rspec will already have been required
         require 'rspec'
         require 'rspec/its'
         require 'serverspec/matcher'
@@ -80,8 +82,11 @@ class Chef
         # Our formatter forwards events to the Chef event message bus
         # TODO so some testing to see if these output to a log file - we probably need
         # to register these before any formatters are added.
-        configuration.output_stream = Chef::Config[:log_location]
-        configuration.error_stream = Chef::Config[:log_location]
+        unless configuration.output_stream
+          configuration.output_stream = Chef::Config[:log_location]
+          configuration.error_stream = Chef::Config[:log_location]
+        end
+        # TODO disable global DSL if we're in chef converge
 
         add_formatters
         disable_should_syntax
@@ -89,9 +94,16 @@ class Chef
       end
 
       def add_formatters
-        configuration.add_formatter(RSpec::Core::Formatters::DocumentationFormatter)
-        configuration.add_formatter(Chef::Audit::AuditEventProxy)
-        Chef::Audit::AuditEventProxy.events = run_context.events
+        # If we are running RSpec regularly or this is the second time calling this method,
+        # the formatters will have already been setup
+        has_documentation_formatter = configuration.formatters.find_index {|f|
+          f.instance_of?(RSpec::Core::Formatters::DocumentationFormatter)
+        }
+        unless has_documentation_formatter
+          configuration.add_formatter(RSpec::Core::Formatters::DocumentationFormatter)
+          configuration.add_formatter(Chef::Audit::AuditEventProxy)
+          Chef::Audit::AuditEventProxy.events = run_context.events
+        end
       end
 
       # Explicitly disable :should syntax.
@@ -110,9 +122,10 @@ class Chef
       end
 
       def configure_specinfra
-        # TODO: We may need to change this based on operating system (there is a
-        # powershell backend) or roll our own.
-        Specinfra.configuration.backend = :exec
+        # Only configure this one - otherwise it spits out an error message trying to configure it multiple times
+        if Specinfra.configuration.backend.nil?
+          Specinfra.configuration.backend = :exec
+        end
       end
 
     end
