@@ -16,6 +16,53 @@
 # limitations under the License.
 #
 
-require 'chef/dsl/audit'
-require 'chef/audit/controls'
-require 'chef/audit/runner'
+require 'rspec'
+require 'rspec/its'
+require 'specinfra'
+
+require 'chef/audit/audit_event_proxy'
+require 'chef/audit/rspec_formatter'
+
+class Chef
+  class Audit
+
+    def self.configuration
+      RSpec.configuration
+    end
+
+    def self.world
+      RSpec.world
+    end
+
+    if defined?(RSpec)
+      RSpec::Core::ExampleGroup.define_example_group_method :__controls__
+
+      # Explicitly disables :should syntax.
+      # :should is deprecated in RSpec 3.
+      # This can be removed once RSpec no longer supports :should.
+      RSpec.configure do |config|
+        config.expect_with :rspec do |c|
+          c.syntax = :expect
+        end
+      end
+
+      # We're setting the output stream, but that will only be used for error situations
+      # Our formatter forwards events to the Chef event message bus
+      # TODO do some testing to see if these output to a log file - we probably need
+      # to register these before any formatters are added.
+      configuration.output_stream = Chef::Config[:log_location]
+      configuration.error_stream = Chef::Config[:log_location]
+
+      # Adds the formatters used for reporting and displaying audit information
+      configuration.add_formatter(Chef::Audit::RspecFormatter)
+      configuration.add_formatter(Chef::Audit::AuditEventProxy)
+    end
+
+    if defined?(Specinfra)
+      # TODO: May need to adjust based on platform. There is a PowerShell backend
+      # that we may want to use for Windows. Possibly we will have to roll our own.
+      Specinfra.configuration.backend = :exec
+    end
+
+  end
+end

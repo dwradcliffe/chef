@@ -16,6 +16,8 @@
 # limitations under the License.
 #
 
+require 'chef/audit'
+
 class Chef
   class Audit
     class Runner
@@ -28,7 +30,24 @@ class Chef
       end
 
       def run
-        run_context.controls_groups.each { |ctls_grp| ctls_grp.run }
+        setup
+        # The first parameter passed to RSpec::Core::Runner.new
+        # is an instance of RSpec::Core::ConfigurationOptions, which is
+        # responsible for processing command line options passed through rspec.
+        # This then gets merged with the configuration. We'll just communicate
+        # directly with the Configuration here.
+        runner = RSpec::Core::Runner.new(nil, Audit.configuration, Audit.world)
+        runner.run_specs(Audit.world.ordered_example_groups)
+      end
+
+      private
+      def setup
+        Chef::Audit::AuditEventProxy.events = run_context.events
+
+        # Register example groups with the world.
+        # Will be useful if we later decide to apply our own run ordering, or
+        # use example group filters.
+        run_context.controls_groups.each { |controls| Audit.world.register(controls.group) }
       end
     end
   end
