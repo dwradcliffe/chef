@@ -19,8 +19,7 @@
 require 'serverspec/helper'
 require 'serverspec/matcher'
 require 'serverspec/subject'
-
-require 'chef/audit'
+require 'rspec'
 
 RSpec::Core::ExampleGroup.define_example_group_method :control
 

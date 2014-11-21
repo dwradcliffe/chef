@@ -16,8 +16,6 @@
 # limitations under the License.
 #
 
-require 'chef/audit'
-
 class Chef
   class Audit
     class Runner
@@ -30,6 +28,8 @@ class Chef
       end
 
       def run
+        require 'chef/audit'
+
         setup
         # The first parameter passed to RSpec::Core::Runner.new
         # is an instance of RSpec::Core::ConfigurationOptions, which is
